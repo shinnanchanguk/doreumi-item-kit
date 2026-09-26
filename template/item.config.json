@@ -1,0 +1,7 @@
+{
+  "name": "파란 실크 모자",
+  "description": "노란 띠를 두른 높은 파란 모자예요.",
+  "slots": ["head"],
+  "rigged": false,
+  "bone": "headAccessory"
+}

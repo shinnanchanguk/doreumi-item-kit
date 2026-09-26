@@ -1,0 +1,12 @@
+node_modules/
+template/node_modules/
+dist/
+template/dist/
+# 도름이 모델 캐시: 권리자(아인T) 자산이라 절대 커밋하지 않아요.
+.doreumi/
+template/.doreumi/
+*.glb
+!test/fixtures/*.glb
+.env
+.env.*
+!template/_env.example
