@@ -11,4 +11,3 @@ template/.doreumi/
 .env.*
 !template/_env.example
 face-*.webp
-*.glb
