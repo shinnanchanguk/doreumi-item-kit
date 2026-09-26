@@ -3,9 +3,10 @@
 //   DOREUMI_MODEL_FILE=/path/doreumi-master.glb  -> use a local copy, no network (testing).
 //   otherwise GET ${DORMS_ORIGIN}/api/doreumi/kit/model with the item key, then download the model.
 //   --refresh downloads again even when a cached copy exists.
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { loadDormsEnv, PROJECT_DIR } from "./lib/env.js";
+import { clean } from "./lib/clean.js";
 
 const CACHE = resolve(PROJECT_DIR, ".doreumi");
 const MODEL = resolve(CACHE, "doreumi-master.glb");
@@ -33,14 +34,24 @@ function modelSignature(bytes) {
   } catch { return null; }
 }
 
-async function download(url, max, headers = {}) {
-  const response = await fetch(url, { headers, redirect: "follow", signal: AbortSignal.timeout(120_000) });
+/** Downloads with no key, https only after redirects, and stops reading once `max` bytes are passed. */
+async function download(url, max) {
+  const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(120_000) });
   if (!response.ok) throw Object.assign(new Error(`download ${response.status}`), { status: response.status });
+  const final = new URL(response.url || url);
+  if (final.protocol !== "https:" && !["localhost", "127.0.0.1", "[::1]"].includes(final.hostname)) throw new Error("insecure redirect");
   const declared = Number(response.headers.get("content-length") || 0);
   if (declared > max) throw new Error("too large");
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength > max) throw new Error("too large");
-  return bytes;
+  const reader = response.body.getReader(), chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) { await reader.cancel(); throw new Error("too large"); }
+    chunks.push(value);
+  }
+  return new Uint8Array(Buffer.concat(chunks));
 }
 
 function writeAtomic(path, bytes) {
@@ -53,6 +64,7 @@ export async function fetchModel({ refresh = false } = {}) {
   mkdirSync(CACHE, { recursive: true });
   const localFile = process.env.DOREUMI_MODEL_FILE;
   if (localFile) {
+    if (statSync(localFile).size > MAX_MODEL_BYTES) throw new Error("DOREUMI_MODEL_FILE 이 너무 커요.");
     const bytes = new Uint8Array(readFileSync(localFile));
     const signature = modelSignature(bytes);
     if (!signature) throw new Error("DOREUMI_MODEL_FILE 이 도름이 모델(.glb)이 아니에요.");
@@ -61,7 +73,7 @@ export async function fetchModel({ refresh = false } = {}) {
     const dir = dirname(localFile);
     for (const [from, to] of [["face-skin.webp", "face-skin.webp"], ["expressions/neutral.webp", "face-neutral.webp"]]) {
       const source = resolve(dir, from);
-      if (existsSync(source)) copyFileSync(source, resolve(CACHE, to));
+      if (existsSync(source) && statSync(source).size <= MAX_TEXTURE_BYTES) copyFileSync(source, resolve(CACHE, to));
     }
     writeFileSync(INFO, JSON.stringify({ source: "local", rigSignature: signature, rights: RIGHTS.join(" ") }, null, 2));
     return { cached: false, signature };
@@ -69,8 +81,9 @@ export async function fetchModel({ refresh = false } = {}) {
 
   if (!refresh && existsSync(MODEL) && existsSync(INFO)) {
     const signature = modelSignature(new Uint8Array(readFileSync(MODEL)));
-    const info = JSON.parse(readFileSync(INFO, "utf8"));
-    if (signature && signature === info.rigSignature) return { cached: true, signature };
+    let info = null;
+    try { info = JSON.parse(readFileSync(INFO, "utf8")); } catch { /* broken note: download again */ }
+    if (signature && signature === info?.rigSignature) return { cached: true, signature };
   }
 
   const { origin, key } = loadDormsEnv();
@@ -80,7 +93,7 @@ export async function fetchModel({ refresh = false } = {}) {
   } catch { throw new Error("도름스에 연결하지 못했어요. 인터넷 연결과 DORMS_ORIGIN 을 확인해 주세요."); }
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const reason = typeof body.error === "string" ? body.error.slice(0, 200) : "";
+    const reason = clean(body.error, 200);
     throw new Error(`도름이 모델을 받지 못했어요(${response.status}). ${reason}`.trim());
   }
   // Only download from the same DoRms site, and never send the key along with the file request.
@@ -99,8 +112,9 @@ export async function fetchModel({ refresh = false } = {}) {
       try { writeAtomic(resolve(CACHE, name), await download(url, MAX_TEXTURE_BYTES)); } catch { /* the preview works without the face */ }
     }
   }
-  const rights = typeof body.rights === "string" ? body.rights.slice(0, 1000) : RIGHTS.join(" ");
-  writeFileSync(INFO, JSON.stringify({ source: origin, rigSignature: signature, attachPoints: Array.isArray(body.attachPoints) ? body.attachPoints.slice(0, 64) : undefined, rights }, null, 2));
+  const rights = clean(body.rights, 1000) || RIGHTS.join(" ");
+  const attachPoints = Array.isArray(body.attachPoints) ? body.attachPoints.filter((p) => typeof p === "string" && /^[A-Za-z0-9_]{1,64}$/.test(p)).slice(0, 64) : undefined;
+  writeAtomic(INFO, JSON.stringify({ source: origin, rigSignature: signature, attachPoints, rights }, null, 2));
   return { cached: false, signature };
 }
 

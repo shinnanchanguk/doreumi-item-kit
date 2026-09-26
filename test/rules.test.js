@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { checkConfig, checkItemGlb, checkPreviewWebp, normalizeSlots } from "../template/scripts/lib/rules.js";
@@ -128,5 +128,27 @@ test("init copies the template, renames dotfiles and runs nothing else", () => {
     assert.match(readFileSync(join(project, ".gitignore"), "utf8"), /^\.doreumi\/$/m);
     assert.equal(JSON.parse(readFileSync(join(project, "package.json"), "utf8")).name, "my-item");
     assert.throws(() => execFileSync(process.execPath, [cli, "init", "My Item"], { cwd: dir, stdio: "pipe" }));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("the key only goes to DoRms or this computer", async () => {
+  const { parseOrigin } = await import("../template/scripts/lib/env.js");
+  assert.equal(parseOrigin("https://dorms.school/x"), "https://dorms.school");
+  assert.equal(parseOrigin("https://preview.dorms.school"), "https://preview.dorms.school");
+  assert.equal(parseOrigin("http://127.0.0.1:3000"), "http://127.0.0.1:3000");
+  assert.equal(parseOrigin("https://dorms-school.app"), null);
+  assert.equal(parseOrigin("https://evil.com/.dorms.school"), null);
+  assert.equal(parseOrigin("http://dorms.school"), null);
+  assert.equal(parseOrigin("https://user:pw@dorms.school"), null);
+  assert.equal(parseOrigin("https://other.example", { allowCustom: true }), "https://other.example");
+});
+test("project folder with Korean and spaces resolves to itself", () => {
+  const dir = mkdtempSync(join(tmpdir(), "도름이 키트-"));
+  try {
+    const cli = resolve(new URL("..", import.meta.url).pathname, "bin/cli.js");
+    execFileSync(process.execPath, [cli, "init", "한글 폴더"], { cwd: dir, encoding: "utf8" });
+    const project = join(dir, "한글 폴더");
+    const out = execFileSync(process.execPath, ["-e", "import('./scripts/lib/env.js').then(m => console.log(m.PROJECT_DIR))"], { cwd: project, encoding: "utf8" }).trim();
+    assert.equal(out, realpathSync(project));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

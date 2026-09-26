@@ -122,11 +122,12 @@ async function main() {
     shotCamera.position.copy(viewPosition("front", DISTANCE * 1.02)); shotCamera.lookAt(TARGET);
     shot.render(scene, shotCamera);
     let blob = null;
-    for (const quality of [0.92, 0.8, 0.65, 0.5]) {
+    for (const quality of [0.92, 0.8, 0.65, 0.5, 0.35]) {
       blob = await new Promise((resolve) => offscreen.toBlob(resolve, "image/webp", quality));
       if (blob && blob.type === "image/webp" && blob.size <= 400 * 1024) break;
     }
-    shot.dispose();
+    shot.forceContextLoss(); shot.dispose();
+    if (blob && blob.size > 400 * 1024) { mixer.stopAllAction(); current = null; play(was?.getClip().name ?? "Idle"); throw new Error("미리보기 그림이 400KB 를 넘어요. 그림(무늬)을 줄여 주세요."); }
     mixer.stopAllAction(); current = null; play(was?.getClip().name ?? "Idle");
     if (!blob || blob.type !== "image/webp") throw new Error("이 브라우저는 WebP 저장을 못 해요. 크롬이나 엣지에서 열어 주세요.");
     return new Uint8Array(await blob.arrayBuffer());

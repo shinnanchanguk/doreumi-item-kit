@@ -33,6 +33,11 @@ export async function exportItem(object, { rigged, doreumi }) {
   let input = object;
   if (rigged) {
     if (!skinned.length) throw new Error("몸 따라 움직이는 옷(rigged: true)인데 helpers.makeGarment 로 만든 옷이 없어요.");
+    let plain = 0;
+    object.traverse((child) => { if (child.isMesh && !child.isSkinnedMesh) plain++; });
+    // The site keeps only skinned parts of a rigged item, so plain parts would silently disappear.
+    if (plain) throw new Error(`몸 따라 움직이는 옷에는 helpers.makeGarment 로 만든 부분만 들어가요. 뼈에 묶이지 않은 부품 ${plain}개(단추, 리본 등)도 makeGarment 로 만들어 주세요.`);
+    if (!doreumi.body.bindMatrix.equals(new THREE.Matrix4())) throw new Error("도름이 모델의 묶음 기준이 예상과 달라요. 도구를 최신으로 받아 주세요.");
     const { copy, bones } = restRig(doreumi);
     const group = new THREE.Group(); group.name = "DoreumiItem";
     group.add(copy);

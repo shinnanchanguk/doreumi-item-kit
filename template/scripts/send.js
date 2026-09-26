@@ -2,6 +2,7 @@
 // npm run send [-- --previous <요청 id>]: check, then send the item to DoRms.
 import { runCheck } from "./check.js";
 import { loadDormsEnv } from "./lib/env.js";
+import { clean } from "./lib/clean.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -34,12 +35,14 @@ async function main() {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     process.exitCode = 1;
-    console.log(`보내지 못했어요(${response.status}). ${typeof body.error === "string" ? body.error : "잠시 후 다시 해 주세요."}`);
+    console.log(`보내지 못했어요(${response.status}). ${clean(body.error, 300) || "잠시 후 다시 해 주세요."}`);
     if (response.status === 401) console.log("열쇠가 맞지 않거나 만료됐을 수 있어요. 도름스에서 프롬프트를 다시 받아 주세요.");
     return;
   }
-  console.log(typeof body.message === "string" ? body.message : "요청을 보냈어요.");
-  console.log(`요청 id: ${body.id}${body.revision > 1 ? ` (고친 판 ${body.revision})` : ""}`);
+  console.log(clean(body.message, 300) || "요청을 보냈어요.");
+  if (typeof body.id !== "string" || !UUID.test(body.id)) { console.log("요청은 보냈지만 요청 id 를 받지 못했어요. npm run status 로 확인해 주세요."); return; }
+  const revision = Number.isInteger(body.revision) ? body.revision : 1;
+  console.log(`요청 id: ${body.id}${revision > 1 ? ` (고친 판 ${revision})` : ""}`);
   console.log("고쳐 달라는 답이 오면 npm run send -- --previous " + body.id + " 로 다시 보내면 돼요.");
 }
 

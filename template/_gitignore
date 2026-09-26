@@ -2,6 +2,10 @@ node_modules/
 dist/
 # 도름이 모델 캐시: 권리자(아인T) 자산이라 절대 커밋하지 않아요.
 .doreumi/
+# the same files copied anywhere else in the folder
+doreumi-master.glb
+face-skin.webp
+face-neutral.webp
 *.glb.part
 .env
 .env.*

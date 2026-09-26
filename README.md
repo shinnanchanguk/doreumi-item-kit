@@ -18,9 +18,10 @@
 ## 쓰는 법
 
 ```bash
-DORMS_ORIGIN=https://dorms.school DORMS_ITEM_KEY=<도름스에서 받은 열쇠> \
-  npx -y <이 도구의 주소> init my-item
+npx -y <이 도구의 주소> init my-item
 cd my-item && npm install
+# .env.example 을 .env 로 복사하고 DORMS_ITEM_KEY 에 도름스에서 받은 열쇠를 넣어요.
+# 명령줄에 열쇠를 직접 쓰면 터미널 기록에 남으니 .env 를 권해요.
 npm run preview   # 모델을 받고 브라우저 미리보기
 npm run check     # 도름스와 같은 규칙으로 검사
 npm run send      # 도름스에 보내기

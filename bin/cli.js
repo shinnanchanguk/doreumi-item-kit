@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // doreumi-item-kit init <폴더>: copies template/ into a new folder. Runs nothing else.
-import { cpSync, existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,11 +29,11 @@ ${RIGHTS}`);
 function init(target) {
   if (!target) { console.log("만들 폴더 이름을 적어 주세요. 예: init my-hat"); process.exitCode = 1; return; }
   const dir = resolve(process.cwd(), target);
-  if (existsSync(dir) && readdirSync(dir).length) {
+  if (existsSync(dir) && (!statSync(dir).isDirectory() || readdirSync(dir).length)) {
     console.log(`${target} 폴더가 이미 있고 비어 있지 않아요. 다른 이름을 쓰거나 빈 폴더를 골라 주세요.`);
     process.exitCode = 1; return;
   }
-  cpSync(TEMPLATE, dir, { recursive: true, errorOnExist: true, filter: (src) => !/[\\/](node_modules|dist|\.doreumi)([\\/]|$)/.test(src.slice(TEMPLATE.length)) });
+  cpSync(TEMPLATE, dir, { recursive: true, errorOnExist: true, force: false, filter: (src) => !/[\\/](node_modules|dist|\.doreumi)([\\/]|$)/.test(src.slice(TEMPLATE.length)) });
   // npm drops dotfiles like .gitignore from packages, so they travel with a leading underscore.
   for (const [from, to] of [["_gitignore", ".gitignore"], ["_env.example", ".env.example"]]) {
     if (existsSync(resolve(dir, from))) renameSync(resolve(dir, from), resolve(dir, to));
@@ -58,7 +58,7 @@ function init(target) {
   3. README.md 와 AGENTS.md 를 끝까지 읽기
   4. npm run preview  (도름이 모델을 받고 브라우저 미리보기를 띄워요)
   5. src/item.js 를 고쳐 아이템 만들기, 미리보기에서 '저장'
-  6. npm run check  → 선생님이 좋다고 하시면 npm run send
+  6. npm run check 로 검사하고, 선생님이 좋다고 하시면 npm run send
 
 DORMS_ORIGIN 과 DORMS_ITEM_KEY 는 환경 변수나 .env 파일로 넣어 주세요(.env.example 참고).
 열쇠는 비밀번호처럼 다뤄 주세요. 코드·깃허브·화면 캡처에 넣지 않아요.

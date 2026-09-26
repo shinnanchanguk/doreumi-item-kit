@@ -92,7 +92,7 @@ export function createHelpers(doreumi) {
     const s = getSurface();
     const cx = s.cellOf(x), cy = s.cellOf(y), cz = s.cellOf(z);
     const best = [];
-    for (let r = 0; r < 60; r++) {
+    for (let r = 0; r < 12; r++) {
       for (let ix = cx - r; ix <= cx + r; ix++) for (let iy = cy - r; iy <= cy + r; iy++) for (let iz = cz - r; iz <= cz + r; iz++) {
         if (Math.max(Math.abs(ix - cx), Math.abs(iy - cy), Math.abs(iz - cz)) !== r) continue;
         const list = s.grid.get(`${ix},${iy},${iz}`); if (!list) continue;
@@ -105,6 +105,14 @@ export function createHelpers(doreumi) {
         }
       }
       if (best.length >= k && best[best.length - 1].d <= r * s.CELL) break;
+    }
+    if (best.length < k) {
+      // Far from the body (outside the grid search): check every point once.
+      for (let i = 0; i < s.count; i++) {
+        const dx = s.P[i * 3] - x, dy = s.P[i * 3 + 1] - y, dz = s.P[i * 3 + 2] - z;
+        const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (best.length < k || d < best[best.length - 1].d) { best.push({ i, d }); best.sort((p, q) => p.d - q.d); if (best.length > k) best.pop(); }
+      }
     }
     return best;
   }
@@ -288,6 +296,7 @@ export function createHelpers(doreumi) {
     for (let it = 0; it < iterations; it++) {
       for (let i = 0; i < count; i++) {
         const list = boundary[i].size ? boundary[i] : neighbors[i];
+        if (!list.size) { next[i * 3] = cur[i * 3]; next[i * 3 + 1] = cur[i * 3 + 1]; next[i * 3 + 2] = cur[i * 3 + 2]; continue; }
         let x = 0, y = 0, z = 0;
         for (const j of list) { x += cur[j * 3]; y += cur[j * 3 + 1]; z += cur[j * 3 + 2]; }
         const m = list.size || 1;
@@ -333,11 +342,14 @@ export function createHelpers(doreumi) {
       if (result.tris.length / 3 <= maxTriangles) { best = result; hi = mid; } else lo = mid;
     }
     best ??= build(hi);
-    const positions = new Float32Array(best.counts.length * 3);
-    for (let id = 0; id < best.counts.length; id++) for (let k = 0; k < 3; k++) positions[id * 3 + k] = best.sums[id * 3 + k] / best.counts[id];
+    // Keep only the points some triangle still uses.
+    const keep = new Map();
+    for (const id of best.tris) if (!keep.has(id)) keep.set(id, keep.size);
+    const positions = new Float32Array(keep.size * 3);
+    for (const [id, to] of keep) for (let k = 0; k < 3; k++) positions[to * 3 + k] = best.sums[id * 3 + k] / best.counts[id];
     const out = new THREE.BufferGeometry();
     out.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    out.setIndex(best.tris);
+    out.setIndex(best.tris.map((id) => keep.get(id)));
     out.computeVertexNormals();
     return out;
   }
@@ -407,7 +419,7 @@ export function createHelpers(doreumi) {
       for (let k = 0; k < 4; k++) { const w = skinWeight[i * 4 + k]; if (!w) continue; const el = restSkin[skinIndex[i * 4 + k]].elements; for (let j = 0; j < 16; j++) e[j] += el[j] * w; }
       m.fromArray(e); inv.copy(m).invert();
       v.fromBufferAttribute(position, i).applyMatrix4(inv); position.setXYZ(i, v.x, v.y, v.z);
-      if (normal) { nm.setFromMatrix4(m).transpose(); v.fromBufferAttribute(normal, i).applyMatrix3(nm).normalize(); normal.setXYZ(i, v.x, v.y, v.z); }
+      if (normal) { nm.setFromMatrix4(inv); v.fromBufferAttribute(normal, i).applyMatrix3(nm).normalize(); normal.setXYZ(i, v.x, v.y, v.z); }
     }
     position.needsUpdate = true; if (normal) normal.needsUpdate = true;
     g.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(skinIndex, 4));

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // npm run status: my item requests and what the operator said.
 import { loadDormsEnv } from "./lib/env.js";
+import { clean } from "./lib/clean.js";
 
 const STATUS = { pending: "검토 중", changes_requested: "고쳐 달라는 요청", approved: "승인됨", rejected: "반려됨", withdrawn: "취소됨" };
-const clean = (value, max) => (typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, " ").slice(0, max) : "");
 
 async function main() {
   const { origin, key } = loadDormsEnv();
