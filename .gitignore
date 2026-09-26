@@ -10,3 +10,5 @@ template/.doreumi/
 .env
 .env.*
 !template/_env.example
+face-*.webp
+*.glb
