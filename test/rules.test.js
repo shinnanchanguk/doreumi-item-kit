@@ -89,7 +89,11 @@ test("rigid items: no skins, bone must exist", () => {
 });
 test("a node named Doreumi is refused", () => {
   const json = base(); json.nodes[0].name = "Doreumi";
-  assert.match(checkItemGlb(glb(json), rigid).reason, /도름이 몸은 바꿀 수 없어요/);
+  assert.match(checkItemGlb(glb(json), rigid).reason, /도름이 몸/);
+});
+test("a rigid item cannot reuse Doreumi bone or attach-point names", () => {
+  const json = base(); json.nodes[0].name = "headAccessory";
+  assert.match(checkItemGlb(glb(json), rigid).reason, /도름이 몸에서 쓰는 이름/);
 });
 test("preview must be a small WebP", () => {
   const webp = new Uint8Array(32); webp.set(Buffer.from("RIFF"), 0); webp.set(Buffer.from("WEBP"), 8);
