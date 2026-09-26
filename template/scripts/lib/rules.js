@@ -107,19 +107,24 @@ export function checkItemGlb(bytes, meta) {
   const skins = gltf.skins ?? [];
   if (meta.rigged) {
     if (!skins.length) return { ok: false, reason: "\uBAB8 \uB530\uB77C \uC6C0\uC9C1\uC774\uB294 \uC637\uC778\uB370 \uBF08\uB300 \uC5F0\uACB0\uC774 \uC5C6\uC5B4\uC694." };
+    const joints = /* @__PURE__ */ new Set();
     for (const skin of skins) for (const joint of skin.joints ?? []) {
       const name = gltf.nodes?.[joint]?.name ?? "";
       if (!RIG_BONES.has(name)) return { ok: false, reason: `\uB3C4\uB984\uC774 \uBF08\uC5D0 \uC5C6\uB294 \uAD00\uC808(${name.slice(0, 40) || "\uC774\uB984 \uC5C6\uC74C"})\uC774 \uC788\uC5B4\uC694.` };
+      joints.add(joint);
     }
+    const reserved = (gltf.nodes ?? []).find((node, index) => !joints.has(index) && node.name && isReservedNodeName(node.name));
+    if (reserved) return { ok: false, reason: `\uBD80\uD488 \uC774\uB984(${String(reserved.name).slice(0, 40)})\uC740 \uB3C4\uB984\uC774 \uBAB8\uC5D0\uC11C \uC4F0\uB294 \uC774\uB984\uC774\uB77C \uBC14\uAFD4 \uC8FC\uC138\uC694.` };
   } else {
     if (skins.length) return { ok: false, reason: "\uBF08\uB300\uC5D0 \uBB36\uC778 \uC637\uC774\uBA74 '\uBAB8 \uB530\uB77C \uC6C0\uC9C1\uC774\uB294 \uC637'\uC73C\uB85C \uBCF4\uB0B4 \uC8FC\uC138\uC694." };
     if (!meta.bone || !ATTACH_POINTS.has(meta.bone)) return { ok: false, reason: "\uBD99\uC77C \uC790\uB9AC \uC774\uB984\uC774 \uB3C4\uB984\uC774 \uBAB8\uC5D0 \uC5C6\uC5B4\uC694." };
-    const reserved = (gltf.nodes ?? []).find((node) => node.name && (ATTACH_POINTS.has(node.name) || node.name === "DoreumiRig" || node.name.startsWith("Doreumi")));
+    const reserved = (gltf.nodes ?? []).find((node) => node.name && isReservedNodeName(node.name));
     if (reserved) return { ok: false, reason: `\uBD80\uD488 \uC774\uB984(${String(reserved.name).slice(0, 40)})\uC740 \uB3C4\uB984\uC774 \uBAB8\uC5D0\uC11C \uC4F0\uB294 \uC774\uB984\uC774\uB77C \uBC14\uAFD4 \uC8FC\uC138\uC694.` };
   }
   if ((gltf.nodes ?? []).some((node) => node.name === "Doreumi")) return { ok: false, reason: "\uB3C4\uB984\uC774 \uBAB8\uC740 \uBC14\uAFC0 \uC218 \uC5C6\uC5B4\uC694. \uC544\uC774\uD15C\uB9CC \uB2F4\uC544 \uC8FC\uC138\uC694." };
   return { ok: true, sha256: createHash("sha256").update(bytes).digest("hex"), triangles, rigged: meta.rigged };
 }
+const isReservedNodeName = (name) => name === "Doreumi" || name === "DoreumiRig" || ATTACH_POINTS.has(name);
 function findExtensionKeys(value, depth = 0, out = []) {
   if (depth > 12 || !value || typeof value !== "object") return out;
   if (Array.isArray(value)) {
