@@ -204,6 +204,12 @@ export function checkConfig(config) {
     bone = cleanText(config.bone, 64) || null;
     if (!bone || !ATTACH_POINTS.has(bone)) problems.push(`붙일 자리(bone)가 도름이 몸에 없어요. 쓸 수 있는 자리: ${[...ATTACH_POINTS].join(", ")}`);
   }
-  const meta = { name, description: cleanText(rawDescription, 200), slots, rigged, bone };
+  // 희망 판매 가격(도름). 적지 않아도 되고, 적으면 1~10,000 정수여야 한다. 최종 가격은 운영자가 상점에 올릴 때 정한다.
+  let price = null;
+  if (config.price !== undefined && config.price !== null) {
+    if (!Number.isInteger(config.price) || config.price < 1 || config.price > 10000) problems.push("희망 판매 가격(price)은 1에서 10,000 사이의 정수(도름)로 적어 주세요.");
+    else price = config.price;
+  }
+  const meta = { name, description: cleanText(rawDescription, 200), slots, rigged, bone, ...(price !== null ? { price } : {}) };
   return { problems, meta };
 }

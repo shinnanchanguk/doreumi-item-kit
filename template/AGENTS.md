@@ -42,9 +42,11 @@
 
 ```json
 { "name": "파란 실크 모자", "description": "노란 띠를 두른 높은 파란 모자예요.",
-  "slots": ["head"], "rigged": false, "bone": "headAccessory" }
+  "slots": ["head"], "rigged": false, "bone": "headAccessory", "price": 30 }
 ```
 
+- `price`: 선생님이 바라는 판매 가격(도름, 1~10,000 정수). 선생님께 물어서 적는다. 운영자가 상점에 올릴 때 조정할 수 있고,
+  팔릴 때마다 최종 가격의 10%가 선생님 판매 수익으로 쌓인다. 정하지 못했으면 이 줄을 지운다.
 - `slots`: 한 자리만. 한 벌 옷만 `["top","bottom"]`.
   `head` 머리 · `face` 얼굴 · `neck` 목 · `top` 상의 · `bottom` 하의 · `shoes` 신발 · `back` 등 · `hand` 손
 - `rigged`: 두 종류 중 하나다.

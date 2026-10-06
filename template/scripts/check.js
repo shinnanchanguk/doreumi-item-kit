@@ -22,7 +22,7 @@ export function runCheck({ dir = PROJECT_DIR, quiet = false } = {}) {
     const result = checkConfig(config);
     meta = result.meta;
     if (result.problems.length) { ok = false; for (const problem of result.problems) fail(problem); }
-    else pass(`설정: 이름 "${meta.name}", 자리 ${meta.slots.join("+")}, ${meta.rigged ? "몸 따라 움직이는 옷" : `뼈에 붙이는 장신구(${meta.bone})`}`);
+    else pass(`설정: 이름 "${meta.name}", 자리 ${meta.slots.join("+")}, ${meta.rigged ? "몸 따라 움직이는 옷" : `뼈에 붙이는 장신구(${meta.bone})`}${meta.price ? `, 희망 가격 ${meta.price}도름` : ""}`);
   }
 
   let glb = null;

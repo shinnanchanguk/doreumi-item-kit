@@ -120,6 +120,13 @@ test("config: name, description, slots, rigged/bone", () => {
   assert.equal(checkConfig({ name: "옷", slots: ["top"], rigged: "yes", bone: "torso" }).problems.length, 1);
   assert.equal(checkConfig({ name: "", slots: ["x"], rigged: false, bone: "tail" }).problems.length, 3);
 });
+test("config: optional desired price (whole 도름 1~10,000) goes into meta", () => {
+  const base = { name: "모자", slots: ["head"], rigged: false, bone: "headAccessory" };
+  assert.equal(checkConfig({ ...base, price: 30 }).meta.price, 30);
+  assert.equal("price" in checkConfig(base).meta, false);
+  assert.equal("price" in checkConfig({ ...base, price: null }).meta, false);
+  for (const bad of [0, -5, 10001, 2.5, "30"]) assert.equal(checkConfig({ ...base, price: bad }).problems.length, 1, String(bad));
+});
 test("init copies the template, renames dotfiles and runs nothing else", () => {
   const dir = mkdtempSync(join(tmpdir(), "doreumi-kit-"));
   try {
