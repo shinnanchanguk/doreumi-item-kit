@@ -163,3 +163,19 @@ test("project folder with Korean and spaces resolves to itself", () => {
     assert.equal(out, realpathSync(project));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("optional light markers are bounded and limited to one mesh", () => {
+  const marker = { kind: "spot", color: "#ffd080" };
+  const make = (light = marker) => { const json = base(); json.nodes[0].extras = { doreumiLight: light }; return json; };
+  assert.equal(checkItemGlb(glb(make()), rigid).ok, true);
+  for (const light of [null, [], { ...marker, distance: 0 }, { ...marker, intensity: 19 }, { ...marker, direction: [0, 0, 0] }, { ...marker, bone: 'head' }, { ...marker, castShadow: true }]) {
+    assert.equal(checkItemGlb(glb(make(light)), rigid).ok, false);
+  }
+  const duplicate = make(); duplicate.nodes.push({ ...duplicate.nodes[0], name: 'second' });
+  assert.equal(checkItemGlb(glb(duplicate), rigid).ok, false);
+  const multi = make(); multi.meshes[0].primitives.push(multi.meshes[0].primitives[0]);
+  assert.equal(checkItemGlb(glb(multi), rigid).ok, false);
+  const rigged = make({ kind: 'point', color: '#ffefaa', bone: 'torso' });
+  rigged.nodes[0].skin = 0; rigged.nodes.push({ name: 'torso' }); rigged.skins = [{ joints: [1] }];
+  assert.equal(checkItemGlb(glb(rigged), { rigged: true, bone: null }).ok, true);
+});

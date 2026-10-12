@@ -4,6 +4,7 @@
 //             file's joints carry Doreumi's joint names (the site re-binds them by name).
 import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
+import { ITEM_LIGHT_MAX_PER_ITEM, parseItemLight } from "./itemLight.js";
 
 function skinnedMeshes(object) {
   const list = [];
@@ -29,6 +30,14 @@ function restRig(doreumi) {
 }
 
 export async function exportItem(object, { rigged, doreumi }) {
+  let lightCount = 0;
+  object.traverse((node) => {
+    if (!Object.hasOwn(node.userData, "doreumiLight")) return;
+    if (!node.isMesh || Array.isArray(node.material) || !parseItemLight(node.userData.doreumiLight, rigged)) {
+      throw new Error("불빛 설정이 맞지 않아요. 재질 하나를 쓰는 부품에 helpers.addLight로 붙여 주세요.");
+    }
+    if (++lightCount > ITEM_LIGHT_MAX_PER_ITEM) throw new Error("아이템 하나에는 불빛을 한 곳만 넣을 수 있어요.");
+  });
   const skinned = skinnedMeshes(object);
   let input = object;
   if (rigged) {
@@ -46,6 +55,7 @@ export async function exportItem(object, { rigged, doreumi }) {
       if (joints.some((bone) => !bone)) throw new Error("옷이 도름이 뼈가 아닌 관절에 묶여 있어요. helpers.makeGarment 로 만들어 주세요.");
       const mesh = new THREE.SkinnedMesh(garment.geometry, garment.material);
       mesh.name = garment.name && garment.name !== "Doreumi" ? garment.name : "garment";
+      mesh.userData = JSON.parse(JSON.stringify(garment.userData));
       mesh.position.copy(garment.position); mesh.quaternion.copy(garment.quaternion); mesh.scale.copy(garment.scale);
       mesh.bind(new THREE.Skeleton(joints, garment.skeleton.boneInverses.map((m) => m.clone())), garment.bindMatrix.clone());
       mesh.bindMode = garment.bindMode;

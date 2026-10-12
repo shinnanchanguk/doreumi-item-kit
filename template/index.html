@@ -13,8 +13,9 @@
       h1 { margin: 0; font-size: 17px; }
       #stage { width: 100%; height: 100%; display: block; min-height: 320px; touch-action: none; }
       #tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+      #tools[hidden] { display: none; }
       .group { display: flex; gap: 6px; flex-wrap: wrap; }
-      button { font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--snow); color: var(--ink); cursor: pointer; }
+      button { min-height: 44px; min-width: 44px; font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--snow); color: var(--ink); cursor: pointer; }
       button[aria-pressed="true"] { background: var(--navy); color: var(--snow); border-color: var(--navy); }
       button#save { background: var(--navy); color: var(--snow); border-color: var(--navy); font-weight: 600; }
       button:disabled { opacity: 0.6; cursor: wait; }
@@ -29,6 +30,7 @@
       <div id="tools" hidden>
         <div class="group" id="views" aria-label="보는 방향"></div>
         <div class="group" id="clips" aria-label="동작"></div>
+        <div class="group" id="times" aria-label="낮과 밤"></div>
         <button id="save" type="button">저장</button>
       </div>
     </header>

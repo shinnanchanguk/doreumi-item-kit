@@ -10,12 +10,14 @@
 //   rigged (rigged:true, bone:null): clothes that bend with the body. Make the shape in rest space and
 //          pass it to makeGarment(), which copies skin weights from the nearest body points.
 import * as THREE from "three";
+import { parseItemLight } from "./itemLight.js";
 
 /** Clothes should float this far outside the body surface (model units) so the body does not poke through. */
 export const OFFSET = { min: 0.01, recommended: 0.015, max: 0.02 };
 
 export function createHelpers(doreumi) {
   const { model, body, rest } = doreumi;
+  let lightMesh = null;
   // Per-bone skin matrix in the rest pose: what the GPU does to a body point bound 100% to that bone.
   // (Doreumi's inverse bind matrices are not the plain inverse of the rest pose: the rendered body is
   // about 7% larger than the raw mesh data, so we always work with the rendered, skinned rest surface.)
@@ -443,5 +445,29 @@ export function createHelpers(doreumi) {
     return texture;
   }
 
-  return { OFFSET, landmarks, placeOnBone, attachToBone, smooth, simplify, restPosition, restQuaternion, toBoneSpace, fromBoneSpace, raycastBody, nearestBodyPoint, bodyShell, measureGap, pushOutside, makeGarment, canvasTexture };
+  /**
+   * Mark one lens/bulb mesh as an item light. Rigid position/direction are mesh-local;
+   * skinned garments must name a body bone and use that bone's local coordinates.
+   * The marker, not a Three light object, is saved in the GLB for the site to read.
+   */
+  function addLight(mesh, options) {
+    if (!mesh?.isMesh || mesh === body || Array.isArray(mesh.material) || !mesh.material?.isMeshStandardMaterial) {
+      throw new Error("불빛은 MeshStandardMaterial 재질 하나를 쓰는 아이템 부품에 붙여 주세요.");
+    }
+    const marker = parseItemLight(options, mesh.isSkinnedMesh === true);
+    if (!marker) throw new Error("불빛 설정이 맞지 않아요. AGENTS.md의 '불빛을 비추는 아이템'에서 종류·색·범위와 뼈 이름을 확인해 주세요.");
+    if (lightMesh && lightMesh !== mesh && lightMesh.userData.doreumiLight) {
+      throw new Error("아이템 하나에는 불빛을 한 곳만 넣을 수 있어요.");
+    }
+    // Do not make every part glow when the maker reuses one material for several meshes.
+    if (lightMesh !== mesh) mesh.material = mesh.material.clone();
+    mesh.material.emissive.set(marker.color);
+    mesh.material.emissiveIntensity = Number.isFinite(mesh.material.emissiveIntensity)
+      ? Math.min(2.5, Math.max(0.7, mesh.material.emissiveIntensity)) : 1;
+    mesh.userData.doreumiLight = marker;
+    lightMesh = mesh;
+    return mesh;
+  }
+
+  return { OFFSET, landmarks, placeOnBone, attachToBone, smooth, simplify, restPosition, restQuaternion, toBoneSpace, fromBoneSpace, raycastBody, nearestBodyPoint, bodyShell, measureGap, pushOutside, makeGarment, canvasTexture, addLight };
 }

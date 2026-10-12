@@ -8,22 +8,19 @@ import { createHelpers } from "./helpers.js";
 import { loadDoreumi } from "./doreumi.js";
 import { exportItem } from "./exportItem.js";
 import { wearDressItem } from "./dress.js";
+import { createItemLightPreview, createPreviewEnvironment } from "./light.js";
 
 const $ = (id) => document.getElementById(id);
 const status = (text, kind = "") => { const el = $("status"); el.textContent = text; el.dataset.kind = kind; };
 
 const CLIPS = [["Idle", "가만히"], ["Walk", "걷기"], ["Sit", "앉기"], ["Wave", "손 흔들기"]];
 const VIEWS = [["front", "앞"], ["side", "옆"], ["back", "뒤"]];
+const TIMES = [["day", "낮"], ["night", "밤"]];
 const TARGET = new THREE.Vector3(0, 1, 0);
 let DISTANCE = 6;
+let night = false;
+const NIGHT_VIEW_SCALE = 1.6;
 
-function addLights(scene) {
-  // Same lighting as the site's Doreumi renderer.
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xb4c3d7, 2.2));
-  for (const [color, intensity, x, y, z] of [[0xfffbf5, 3.1, -3.2, 5.8, 4.6], [0xcfe2ff, 1.35, 4, 3, 1.5], [0x8faeff, 1.05, -3, 3.5, -4]]) {
-    const light = new THREE.DirectionalLight(color, intensity); light.position.set(x, y, z); scene.add(light);
-  }
-}
 function makeRenderer(canvas, options = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, ...options });
   renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.AgXToneMapping; renderer.toneMappingExposure = 1.03;
@@ -31,6 +28,7 @@ function makeRenderer(canvas, options = {}) {
   return renderer;
 }
 function viewPosition(view, distance = DISTANCE) {
+  distance *= night ? NIGHT_VIEW_SCALE : 1;
   const angle = view === "side" ? Math.PI / 2 : view === "back" ? Math.PI : 0;
   return new THREE.Vector3(Math.sin(angle) * distance, TARGET.y + distance * 0.08, Math.cos(angle) * distance);
 }
@@ -46,6 +44,7 @@ function frameOn(model) {
   const size = box.getSize(new THREE.Vector3());
   box.getCenter(TARGET);
   DISTANCE = (Math.max(size.y, size.x) * 0.62) / Math.tan(THREE.MathUtils.degToRad(15));
+  return box;
 }
 
 async function main() {
@@ -53,7 +52,7 @@ async function main() {
   const renderer = makeRenderer(canvas);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const scene = new THREE.Scene();
-  addLights(scene);
+  const environment = createPreviewEnvironment(scene);
   const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 50);
   const controls = new OrbitControls(camera, canvas);
   controls.target.copy(TARGET); controls.enablePan = false; controls.minDistance = 2; controls.maxDistance = 10;
@@ -72,7 +71,9 @@ async function main() {
   if (!object?.isObject3D) throw new Error("src/item.js 의 buildItem 이 THREE.Object3D 를 돌려주지 않았어요.");
   const glb = await exportItem(object, { rigged: config.rigged === true, doreumi });
   const worn = await wearDressItem(doreumi.loader, doreumi.model, { id: "preview", bytes: glb, rigged: config.rigged === true, bone: config.bone });
+  const itemLight = createItemLightPreview(scene, doreumi.model, worn, config.rigged === true);
   window.__kit.glb = glb; window.__kit.worn = worn;
+  window.__kit.itemLight = itemLight; window.__kit.environment = environment;
 
   const mixer = new THREE.AnimationMixer(doreumi.model);
   let current = null;
@@ -95,10 +96,29 @@ async function main() {
     const button = document.createElement("button"); button.textContent = label; button.dataset.clip = clip;
     button.addEventListener("click", () => play(clip)); $("clips").append(button);
   }
+  const setTime = (time) => {
+    const next = time === "night";
+    if (next !== night) {
+      camera.position.sub(controls.target).multiplyScalar(next ? NIGHT_VIEW_SCALE : 1 / NIGHT_VIEW_SCALE).add(controls.target);
+      controls.minDistance = 2 * (next ? NIGHT_VIEW_SCALE : 1);
+      controls.maxDistance = 10 * (next ? NIGHT_VIEW_SCALE : 1);
+      night = next; controls.update();
+    }
+    environment.setNight(time === "night");
+    itemLight.setNight(time === "night");
+    for (const button of document.querySelectorAll("[data-time]")) button.setAttribute("aria-pressed", String(button.dataset.time === time));
+  };
+  for (const [time, label] of TIMES) {
+    const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.dataset.time = time;
+    button.addEventListener("click", () => setTime(time)); $("times").append(button);
+  }
+  setTime("day");
   toolbar.hidden = false;
   play("Idle");
   mixer.update(0.01); doreumi.model.updateMatrixWorld(true);
-  frameOn(doreumi.model); controls.target.copy(TARGET); setView("front");
+  const bounds = frameOn(doreumi.model);
+  environment.floor.position.y = bounds.min.y - 0.02;
+  controls.target.copy(TARGET); setView("front");
 
   const resize = () => {
     const { clientWidth: w, clientHeight: h } = canvas;
@@ -106,7 +126,14 @@ async function main() {
   };
   window.addEventListener("resize", resize); resize();
   const clock = new THREE.Clock();
-  renderer.setAnimationLoop(() => { mixer.update(Math.min(clock.getDelta(), 0.1)); controls.update(); renderer.render(scene, camera); });
+  renderer.setAnimationLoop(() => {
+    mixer.update(Math.min(clock.getDelta(), 0.1));
+    itemLight.update(); controls.update(); renderer.render(scene, camera);
+  });
+  if (import.meta.hot) import.meta.hot.dispose(() => {
+    renderer.setAnimationLoop(null); window.removeEventListener("resize", resize);
+    itemLight.dispose(); environment.dispose(); controls.dispose(); renderer.dispose();
+  });
 
   // Front image for the operator's review card: 512x512 WebP, Idle pose, <= 400KB.
   async function renderPreviewWebp() {
@@ -115,6 +142,7 @@ async function main() {
     mixer.stopAllAction();
     if (idle) { const action = mixer.clipAction(idle); action.reset().play(); mixer.setTime(0.4); }
     doreumi.model.updateMatrixWorld(true);
+    itemLight.update();
     const offscreen = document.createElement("canvas"); offscreen.width = 512; offscreen.height = 512;
     const shot = makeRenderer(offscreen, { preserveDrawingBuffer: true });
     shot.setPixelRatio(1); shot.setSize(512, 512, false);
@@ -152,7 +180,9 @@ async function main() {
 
   const kind = config.rigged ? "몸 따라 움직이는 옷" : `뼈에 붙이는 장신구 (${config.bone})`;
   $("title").textContent = `${config.name || "이름 없는 아이템"} · ${kind}`;
-  status("앞·옆·뒤와 걷기·앉기·손 흔들기로 돌려 보며 몸을 뚫거나 떠 있지 않은지 확인해 주세요. 마음에 들면 저장을 눌러 주세요.");
+  status(itemLight.lights.length
+    ? "앞·옆·뒤와 동작을 확인하고, 밤을 눌러 빛이 비추는 자리도 봐 주세요. 저장하면 지금 고른 낮·밤 모습이 미리보기 그림에 담겨요."
+    : "앞·옆·뒤와 걷기·앉기·손 흔들기로 돌려 보며 몸을 뚫거나 떠 있지 않은지 확인해 주세요. 마음에 들면 저장을 눌러 주세요.");
   window.__kit.ready = true;
 }
 

@@ -30,9 +30,11 @@
 4. `npm run preview` 를 실행한다. 도름이 모델을 받고 브라우저 미리보기를 띄운다(주소는 터미널에 나온다,
    보통 http://127.0.0.1:5230). **선생님이 직접 보게 한다.** 앞, 옆, 뒤 단추와 가만히, 걷기, 앉기, 손 흔들기
    단추를 눌러 보며 몸을 뚫거나 공중에 떠 있지 않은지 함께 확인한다. 마우스로 끌면 돌려 볼 수 있다.
+   불빛이 있는 아이템은 **밤**에서도 바닥을 비추는지, 동작에 맞춰 빛의 자리와 방향이 따라가는지 본다.
    `src/item.js` 를 저장하면 미리보기가 저절로 다시 그린다.
 5. 이상한 곳이 있으면 고치고 다시 보여 드린다. 선생님이 **좋다고 말하기 전에는 보내지 않는다.**
 6. 선생님이 좋다고 하면 미리보기의 **저장** 단추를 누른다. `dist/item.glb` 와 `dist/preview.webp` 가 생긴다.
+   그림에는 지금 고른 낮·밤 모습이 담긴다. 불빛을 보여 주려면 밤에서 저장한다.
 7. `npm run check` 로 검사한다. 도름스 서버와 같은 규칙이다. 실패 줄이 있으면 고치고 4번부터 다시.
 8. `npm run send` 로 보낸다. 나오는 **요청 id** 를 선생님께 알려 드린다. 결과는 도름스 쪽지로 온다.
 9. `npm run status` 로 요청 상태와 운영자 메모를 볼 수 있다. 고쳐 달라는 답이 오면 메모대로 고치고,
@@ -121,6 +123,65 @@ export function buildItem({ THREE, helpers }) {
 - 몸 따라 움직이는 옷 파일에는 `makeGarment` 로 만든 부분만 들어간다. 단추, 리본 같은 장식도 모양을 만든 뒤
   `makeGarment` 로 바꿔 함께 돌려준다(그냥 붙인 부품이 있으면 미리보기가 알려 준다).
 
+### 불빛을 비추는 아이템
+
+손전등, 헤드랜턴, 작은 등처럼 주변을 밝히는 아이템은 `helpers.addLight(mesh, options)`를 쓴다.
+선택 사항이므로 불빛이 필요 없는 아이템에는 넣지 않는다. **아이템 하나에 불빛 한 곳**만 넣으며,
+렌즈나 전구처럼 재질 하나를 쓰는 작은 `Mesh`를 고른다. `MeshStandardMaterial` 재질은 그 부품에만 복사해
+빛나는 색을 입힌다. 여러 재질이 섞인 부품이나 `Group`에는 붙이지 않는다.
+
+```js
+// 앞을 비추는 렌즈. lens는 이미 만든 Mesh다.
+helpers.addLight(lens, {
+  kind: "spot",
+  color: "#ffe2a8",
+  direction: [0, -0.2, 1],
+  angle: 30,
+});
+```
+
+`spot`은 한 방향을 비추는 손전등, `point`는 사방을 밝히는 등이다.
+장신구(`rigged: false`)의 `position`과 `direction`은 **그 렌즈 부품의 좌표**다.
+생략하면 부품의 원점에서 +Z 쪽으로 비춘다. `placeOnBone`을 적용하거나 손이 움직이면 빛도 함께 따라간다.
+장신구의 조명 설정에는 `bone`을 넣지 않는다. 아이템을 붙일 자리는 기존 `item.config.json`의 `bone`을 쓴다.
+
+몸 따라 움직이는 옷(`rigged: true`)에서는 `makeGarment`로 만든 렌즈 부품에 불빛을 붙이고
+**조명이 따라갈 `bone`도 지정**한다. 이때 위치와 방향은 렌즈 부품이 아닌 그 뼈 기준이다.
+다음은 가슴에 붙이는 작은 등이다. 옷과 함께 돌려줄 그룹에 `bulb`를 넣는다.
+
+```js
+const { point, normal } = helpers.landmarks().chest;
+const center = point.clone().addScaledVector(normal, 0.07);
+const shape = new THREE.SphereGeometry(0.04, 12, 8);
+shape.translate(center.x, center.y, center.z);
+const bulb = helpers.makeGarment(shape, new THREE.MeshStandardMaterial({ color: "#fff1cc" }), { name: "lamp-bulb" });
+helpers.addLight(bulb, {
+  kind: "point",
+  color: "#ffe2a8",
+  bone: "torso",
+  position: helpers.toBoneSpace("torso", center).toArray(),
+});
+```
+
+| 설정 | 허용값과 기본값 |
+|---|---|
+| `kind` | 필수. `spot` 또는 `point` |
+| `color` | 필수. `#ffe2a8`처럼 여섯 자리 색상 |
+| `intensity` | 밝기. 0보다 크고 `spot`은 18 이하, `point`는 4 이하. 생략하면 각 최댓값 |
+| `distance` | 빛이 닿는 거리. 0보다 크고 `spot`은 8 이하, `point`는 4.5 이하. 생략하면 각 최댓값. 도름이 키가 약 2.14인 좌표 기준 |
+| `angle` | `spot` 빛의 퍼짐 각도. 5~60도, 기본 30도 |
+| `position` | `[x, y, z]`, 각 값 -3~3, 기본 `[0, 0, 0]` |
+| `direction` | `[x, y, z]`, 각 값 -1~1, 모두 0이면 안 됨. 길이는 도구가 맞춤. 기본 `[0, 0, 1]` |
+| `bone` | 몸 따라 움직이는 옷에만 필수. 위 '붙일 자리'의 뼈·부착점 이름 |
+
+숫자는 유한한 값만 쓴다. 이 표에 없는 설정은 넣지 않는다.
+`THREE.SpotLight`, `THREE.PointLight`나 `KHR_lights_punctual`을 파일에 직접 넣지 않는다.
+`addLight`가 남기는 `extras.doreumiLight`를 도름스가 읽어 밤의 학교에서 실제 조명을 켠다.
+재질의 `emissive`만 바꾸면 부품 자체만 밝게 보일 뿐 바닥이나 주변을 비추지는 않는다.
+
+미리보기는 만든 모양을 내보냈다가 다시 불러와 입힌 뒤 조명을 켠다. **밤**을 눌러 바닥에 빛이 닿는지 확인하고,
+걷기·앉기·손 흔들기에서도 방향을 본다. 밤의 바닥은 확인용이라 아이템 파일과 카메라 크기에 영향을 주지 않는다.
+
 ### helpers 목록
 
 | 이름 | 하는 일 |
@@ -138,6 +199,7 @@ export function buildItem({ THREE, helpers }) {
 | `measureGap(모양)` | `{ vertices, inside, tooClose, minGap }`: 기준 자세에서 몸을 뚫는 점 수 |
 | `smooth(모양, 횟수)` · `simplify(모양, 최대면수)` | 매끄럽게 · 면 수 줄이기 |
 | `canvasTexture(가로, 세로, 그리기함수)` | 2D 캔버스로 그린 무늬(파일 안에 PNG 로 들어감, 512 이하 권장) |
+| `addLight(부품, 설정)` | 렌즈·전구 한 곳에 실제 조명 설정을 넣고 그 부품을 돌려줌. 위 '불빛을 비추는 아이템' 참고 |
 
 `window.__kit` 에 `THREE`, `doreumi`, `helpers` 가 있어 브라우저 콘솔에서 값을 재 볼 수 있다.
 
@@ -156,6 +218,7 @@ export function buildItem({ THREE, helpers }) {
 - 면(삼각형) 40,000개 이하. 옷은 5,000~15,000개면 충분하다(`bodyShell` 은 12,000개로 맞춘다)
 - 그림 4장 이하, 한 장 1MB 이하, PNG, JPG, WebP 만
 - 동작(애니메이션) 넣지 않기. 도름이 몸을 따라 움직인다
+- 불빛은 `helpers.addLight`로 한 곳만. 종류·색·밝기·거리·뼈 설정도 검사한다
 - 부품 200개 이하. 부품 이름으로 `Doreumi` 쓰지 않기
 - 쓸 수 있는 확장: KHR_materials_emissive_strength, KHR_texture_transform, KHR_materials_unlit,
   EXT_meshopt_compression, KHR_mesh_quantization

@@ -8,6 +8,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "test": "node --test test/*.test.js",
     "model": "node scripts/fetch-model.js --refresh",
     "preview": "node scripts/fetch-model.js && vite",
     "check": "node scripts/check.js",
