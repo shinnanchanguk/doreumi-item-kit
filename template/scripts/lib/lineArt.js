@@ -19,6 +19,8 @@
  *   ground  도름이 앞 바닥에 선 것(동반자). 들어 올려도 따라 움직이지 않는다.
  *   hand    손에 드는 물건. 쥐는 점이 (0,0), +x 가 몸 바깥쪽, +y 가 아래. 회원이 고른 손에 붙는다(다른 손이면 좌우를 뒤집는다).
  *   offHand 양손에 드는 아이템의 다른 손 몫(쌍권총 등). hand 와 같은 좌표.
+ *   손 자리 아이템이 바닥에 놓이는 큰 물건이면(피아노 등) behind · ground 층에 오른손(화면 왼쪽) 기준으로 그린다.
+ *   왼손을 고르면 두 손 사이 가운데를 축으로 좌우를 뒤집어 화면 오른쪽에 놓는다(3D 처럼 고른 손 쪽, 바닥 높이는 그대로).
  *
  * 선 종류 k: fl(판 색 면 + 선) · f(판 색 면만) · l(선만) · s(옅은 선) · d(선 색으로 칠한 면 · 점).
  * 경로 d 는 절대 좌표 명령 M · L · Q · C · Z 와 숫자만 쓴다(옮기기 · 뒤집기가 모든 숫자 쌍을 좌표로 다룬다).
@@ -166,6 +168,9 @@ export function placeInHand(paths, arm) {
 const SLOT_RANK = { back: 0, bottom: 1, top: 2, shoes: 3, neck: 4, face: 5, head: 6, hand: 7 };
 const rankOf = (slots) => Math.min(...slots.map((s) => SLOT_RANK[s] ?? 5));
 /** 회원이 입은 아이템들의 선 그림을 그리는 순서대로 합친다. */
+/** 손 자리 아이템의 바닥 층(behind · ground)을 왼손 쪽으로 옮길 때의 축: 두 손 쥐는 점 사이 가운데. */
+const HAND_FLOOR_AXIS = (LINE_GRIP.armR[0] + LINE_GRIP.armL[0]) / 2;
+const mirrorFloor = (paths) => paths.map((p) => ({ k: p.k, d: mapPath(p.d, (x, y) => [2 * HAND_FLOOR_AXIS - x, y]) })).filter((p) => p.d);
 export function composeOutfit(entries) {
     const layers = {};
     const push = (layer, paths) => {
@@ -180,8 +185,11 @@ export function composeOutfit(entries) {
             ant = "hide";
         else if (art.ant === "hollow" && ant === "show")
             ant = "hollow";
-        for (const layer of RENDER_LAYERS)
-            push(layer, art.layers[layer]);
+        const leftFloor = slots.includes("hand") && hand === "leftHand";
+        for (const layer of RENDER_LAYERS) {
+            const list = art.layers[layer];
+            push(layer, leftFloor && list && (layer === "behind" || layer === "ground") ? mirrorFloor(list) : list);
+        }
         if (slots.includes("hand")) {
             const arm = hand === "leftHand" ? "armL" : "armR";
             const other = arm === "armL" ? "armR" : "armL";
