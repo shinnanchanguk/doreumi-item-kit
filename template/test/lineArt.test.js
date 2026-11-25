@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkLineArt, composeOutfit, placeInHand, LINE_GRIP } from "../scripts/lib/lineArt.js";
+import { checkLineArt, composeOutfit, lineLayersFitSlots, placeInHand, LINE_GRIP } from "../scripts/lib/lineArt.js";
 import { buildLineArt } from "../src/lineArt.js";
 import * as DRAW from "../src/lineDraw.js";
 import { figureSvgWith } from "../src/lineFigure.js";
@@ -57,3 +57,18 @@ test("the figure picture strips anything but path characters", () => {
   assert.ok(svg.includes("A34.2 46.9 0 1 0 167.4 136.2Z"), "arc kept");
   assert.ok(!svg.includes("<script"), svg);
 });
+
+test("the drawing layers must fit the item's slots", () => {
+  const p = [{ k: "l", d: "M0 0L1 1" }];
+  assert.equal(lineLayersFitSlots({ v: 1, layers: { hand: p } }, ["hand"]), null);
+  assert.ok(lineLayersFitSlots({ v: 1, layers: { armR: p } }, ["hand"]), "a hand item drawn on an arm layer would not follow the chosen hand");
+  assert.ok(lineLayersFitSlots({ v: 1, layers: { hand: p } }, ["head"]), "a hand layer on a head item would never be drawn");
+});
+
+test("a floor-standing hand item moves to the left-hand side, keeping its height", () => {
+  const art = { v: 1, layers: { ground: [{ k: "l", d: "M40 300L60 310" }] } };
+  const axis = (LINE_GRIP.armR[0] + LINE_GRIP.armL[0]) / 2;
+  assert.equal(composeOutfit([{ art, slots: ["hand"], hand: "leftHand" }]).layers.ground[0].d, `M${2 * axis - 40} 300L${2 * axis - 60} 310`);
+  assert.equal(composeOutfit([{ art, slots: ["hand"], hand: "rightHand" }]).layers.ground[0].d, "M40 300L60 310");
+});
+

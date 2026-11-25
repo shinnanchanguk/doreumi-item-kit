@@ -4,7 +4,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { PROJECT_DIR } from "./lib/env.js";
 import { checkConfig, checkItemGlb, checkPreviewWebp, ITEM_MAX_BYTES, PREVIEW_MAX_BYTES } from "./lib/rules.js";
-import { checkLineArt, LINE_ART_LIMITS } from "./lib/lineArt.js";
+import { checkLineArt, LINE_ART_LIMITS, lineLayersFitSlots } from "./lib/lineArt.js";
 
 /** Runs every check and prints Korean pass/fail lines. Returns { ok, meta, glb, webp, line }. */
 export function runCheck({ dir = PROJECT_DIR, quiet = false } = {}) {
@@ -59,7 +59,9 @@ export function runCheck({ dir = PROJECT_DIR, quiet = false } = {}) {
     let parsed = null;
     try { parsed = JSON.parse(readFileSync(linePath, "utf8")); } catch { /* below */ }
     const checked = parsed ? checkLineArt(parsed) : { ok: false, reason: "JSON 모양이 아니에요." };
+    const fit = checked.ok && meta?.slots ? lineLayersFitSlots(checked.art, meta.slots) : null;
     if (!checked.ok) { fail(`선 그림: ${checked.reason}`); ok = false; }
+    else if (fit) { fail(`선 그림: ${fit}`); ok = false; }
     else {
       line = new TextEncoder().encode(JSON.stringify(checked.art));
       const count = Object.values(checked.art.layers).reduce((total, list) => total + list.length, 0);

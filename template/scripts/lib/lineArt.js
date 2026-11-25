@@ -14,7 +14,7 @@
  *   legR · legL  그 다리와 함께(신발 · 바짓가랑이).
  *   body    몸 위(옷 · 목걸이). 얼굴판 · 눈 · 머리 소용돌이 · 팔보다 뒤.
  *   over    눈 · 머리 소용돌이보다 앞(모자 · 안경 · 가면). 팔보다 뒤.
- *   armR · armL  그 팔과 함께(소매 · 장갑).
+ *   armR · armL  그 팔과 함께(소매 · 팔찌). 손 자리 아이템(장갑 등)은 팔 층이 아니라 hand 층에 그린다(고른 손을 따라가게).
  *   front   팔보다도 앞.
  *   ground  도름이 앞 바닥에 선 것(동반자). 들어 올려도 따라 움직이지 않는다.
  *   hand    손에 드는 물건. 쥐는 점이 (0,0), +x 가 몸 바깥쪽, +y 가 아래. 회원이 고른 손에 붙는다(다른 손이면 좌우를 뒤집는다).
@@ -108,6 +108,21 @@ export function mapPath(d, fn) {
  * 제작자가 보낸 선 그림(JSON)을 검사하고 깨끗한 형태로 돌려준다. 이유는 선생님께 그대로 보여 줄 한국어다.
  * 경로 글자 · 층 이름 · 선 종류를 정해진 것만 받아, 화면에 그릴 때 사용자 입력이 다른 모양으로 끼어들지 않게 한다.
  */
+/**
+ * 그림 층이 그 아이템의 자리와 맞나. 맞지 않으면 회원 화면에서 그림이 빠지거나(손 자리가 아닌데 hand 층),
+ * 회원이 손을 바꿔도 늘 같은 팔에 그려진다(손 자리인데 팔 층). 맞으면 null, 아니면 고칠 말.
+ */
+export function lineLayersFitSlots(art, slots) {
+    const has = (layer) => (art.layers[layer]?.length ?? 0) > 0;
+    if (slots.includes("hand")) {
+        if (has("armR") || has("armL"))
+            return "손 자리 아이템은 팔 층(armR · armL) 대신 hand 층에 그려 주세요. 그래야 선생님이 고른 손을 따라가요.";
+    }
+    else if (has("hand") || has("offHand")) {
+        return "손 자리가 아닌 아이템은 hand · offHand 층이 그려지지 않아요. 그 부분을 몸 · 팔 같은 다른 층으로 옮겨 주세요.";
+    }
+    return null;
+}
 export function checkLineArt(input) {
     if (!input || typeof input !== "object" || Array.isArray(input))
         return { ok: false, reason: "선 그림은 JSON 객체여야 해요." };
