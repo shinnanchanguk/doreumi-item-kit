@@ -12,7 +12,7 @@ import { createItemLightPreview, createPreviewEnvironment } from "./light.js";
 import { buildLineArt } from "./lineArt.js";
 import * as DRAW from "./lineDraw.js";
 import { checkLineArt, composeOutfit } from "../scripts/lib/lineArt.js";
-import { figureSvg, heightFor, THEMES } from "./lineFigure.js";
+import { figureSvgWith, FIGURE_THEMES } from "./lineFigure.js";
 
 const $ = (id) => document.getElementById(id);
 const status = (text, kind = "") => { const el = $("status"); el.textContent = text; el.dataset.kind = kind; };
@@ -217,8 +217,8 @@ async function setUpLineArt(config) {
     section.innerHTML = `<p class="hint">선 그림 도름이 뼈대(.doreumi/line-rig.json)가 없어요. 터미널에서 npm run model 로 다시 받아 주세요.</p>`;
   } else {
     const right = outfitFor("rightHand"), left = isHand ? outfitFor("leftHand") : null;
-    const big = (o) => figureSvg(rig, o, { height: heightFor(400), strokePx: 1.3, grid: true });
-    const real = (o, px, theme) => figureSvg(rig, o, { height: heightFor(px), theme: THEMES[theme], strokePx: 0.9 });
+    const big = (o) => figureSvgWith(rig, o, { doreumiPx: 400, strokePx: 1.3, background: true, grid: true });
+    const real = (o, px, theme) => figureSvgWith(rig, o, { doreumiPx: px, theme: FIGURE_THEMES[theme], strokePx: 0.9, background: true });
     section.innerHTML = [
       result.ok ? "" : `<p class="hint" role="alert"><strong>선 그림 문제:</strong> ${String(result.reason).replace(/</g, "")}</p>`,
       `<div class="figs">${figure(big(right), isHand ? "오른손에 들었을 때(화면 왼쪽)" : "링크트리 선 그림 · 격자 숫자는 src/lineArt.js 의 좌표")}${left ? figure(big(left), "왼손에 들었을 때(화면 오른쪽)") : ""}</div>`,

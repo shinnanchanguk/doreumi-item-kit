@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { checkLineArt, composeOutfit, placeInHand, LINE_GRIP } from "../scripts/lib/lineArt.js";
 import { buildLineArt } from "../src/lineArt.js";
 import * as DRAW from "../src/lineDraw.js";
-import { figureSvg } from "../src/lineFigure.js";
+import { figureSvgWith } from "../src/lineFigure.js";
 
 test("the example line art passes the DoRms check", () => {
   const checked = checkLineArt(buildLineArt(DRAW));
@@ -52,7 +52,7 @@ test("worn items are merged in drawing order (back, bottom, top, shoes, neck, fa
 test("the figure picture strips anything but path characters", () => {
   // The Doreumi skeleton itself uses arcs (face plate): those must survive, only quotes and brackets go.
   const rig = { parts: [{ id: "body", paths: [{ k: "soft", d: "M98.9 136.2A34.2 46.9 0 1 0 167.4 136.2Z" }, { k: "line", d: "M0 0L1 1\"/><script>" }] }] };
-  const svg = figureSvg(rig, { ant: "show", layers: { body: [{ k: "l", d: "M0 0L1 1\"onload=\"x" }] } }, { height: 100 });
+  const svg = figureSvgWith(rig, { ant: "show", layers: { body: [{ k: "l", d: "M0 0L1 1\"onload=\"x" }] } }, { doreumiPx: 100 });
   assert.ok(!svg.includes("onload"), svg);
   assert.ok(svg.includes("A34.2 46.9 0 1 0 167.4 136.2Z"), "arc kept");
   assert.ok(!svg.includes("<script"), svg);
