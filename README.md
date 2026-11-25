@@ -22,12 +22,18 @@ npx -y <이 도구의 주소> init my-item
 cd my-item && npm install
 # .env.example 을 .env 로 복사하고 DORMS_ITEM_KEY 에 도름스에서 받은 열쇠를 넣어요.
 # 명령줄에 열쇠를 직접 쓰면 터미널 기록에 남으니 .env 를 권해요.
-npm run preview   # 모델을 받고 브라우저 미리보기
+npm run preview   # 모델을 받고 브라우저 미리보기(3D · 링크트리 선 그림)
 npm run check     # 도름스와 같은 규칙으로 검사
 npm run send      # 도름스에 보내기
 ```
 
 만들어진 폴더의 `README.md` 와 `AGENTS.md` 에 나머지 순서가 있어요.
+
+## 링크트리 선 그림
+
+도름스 선생님 링크트리의 사물함 위에는 색 없는 선 그림 도름이가 서서, 선생님이 옷장에서 입힌 아이템을 입어요.
+그래서 아이템마다 `src/lineArt.js` 로 같은 아이템의 선 그림을 함께 만들어 보내요. 미리보기의 **선 그림** 단추로
+큰 그림과 링크트리에 실제로 보이는 크기를 확인하고, **저장**하면 `dist/line.json` 이 생겨요. 운영자도 승인할 때 이 그림을 봐요.
 
 ## 조명 아이템 만들기
 
@@ -44,7 +50,10 @@ npm run send      # 도름스에 보내기
 | 경로 | 내용 |
 |---|---|
 | `bin/cli.js` | `init <폴더>`: `template/` 을 새 폴더로 복사하고 다음 순서와 권리 알림을 보여 줘요. 다른 일은 하지 않아요. |
-| `template/src/item.js` | AI가 고치는 단 하나의 파일(예시: 파란 실크 모자) |
+| `template/src/item.js` | AI가 고치는 3D 아이템 파일(예시: 파란 실크 모자) |
+| `template/src/lineArt.js` | AI가 고치는 링크트리 선 그림 파일(같은 아이템의 흑백 선 그림, 예시: 같은 모자) |
+| `template/src/lineDraw.js` · `lineFigure.js` | 선 그림 도구와 그리는 순서(도름스 사이트와 같은 코드) |
+| `template/scripts/lib/lineArt.js` | 도름스 서버의 선 그림 검사와 같은 규칙 |
 | `template/src/helpers.js` | 뼈에 붙이기, 몸 표면 재기, 옷 만들기, 불빛 넣기 도구 |
 | `template/src/dress.js` | 도름스 사이트가 아이템을 입히는 코드와 같은 코드 |
 | `template/src/itemLight.js` | 도름스 서버·학교와 공유하는 조명 설정 검사 |
@@ -59,6 +68,8 @@ npm run send      # 도름스에 보내기
 - 도름스 서버의 검사(`src/lib/doreumi/itemFile.ts`)나 입히는 코드(`motion-dress.ts`)가 바뀌면
   `template/scripts/lib/rules.js`, `template/src/dress.js` 를 같이 바꿔요.
 - 조명 설정이 바뀌면 도름스의 `src/lib/doreumi/itemLight.ts`와 여기의 `template/src/itemLight.js`도 함께 맞춰요.
+- 선 그림 규칙(`src/lib/doreumi/lineArt.ts`) · 도구(`src/lib/linktree/outfit/draw.ts`) · 그리는 순서가 바뀌면
+  `template/scripts/lib/lineArt.js` · `template/src/lineDraw.js` · `template/src/lineFigure.js` 를 같이 바꿔요.
 - 모델 없이 시험할 때는 `DOREUMI_MODEL_FILE=/경로/doreumi-master.glb` 로 로컬 파일을 쓸 수 있어요.
   이 파일도 권리 알림이 그대로 적용돼요.
 

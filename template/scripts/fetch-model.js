@@ -11,6 +11,9 @@ import { clean } from "./lib/clean.js";
 const CACHE = resolve(PROJECT_DIR, ".doreumi");
 const MODEL = resolve(CACHE, "doreumi-master.glb");
 const INFO = resolve(CACHE, "kit.json");
+// The linktree line Doreumi (skeleton of the line drawing) for the "선 그림" preview. Same rights as the model.
+const LINE_RIG = resolve(CACHE, "line-rig.json");
+const MAX_LINE_RIG_BYTES = 512 * 1024;
 const MAX_MODEL_BYTES = 40 * 1024 * 1024;
 const MAX_TEXTURE_BYTES = 2 * 1024 * 1024;
 
@@ -32,6 +35,15 @@ function modelSignature(bytes) {
     const hasBody = (gltf.nodes ?? []).some((node) => node.name === "Doreumi" && node.skin !== undefined);
     return hasBody ? String(gltf.scenes?.[gltf.scene ?? 0]?.extras?.doreumiRigSignature ?? "unknown") : null;
   } catch { return null; }
+}
+
+/** Keeps only a well-formed line rig ({ rig: { parts: [...] } }) under the size cap. Returns true when written. */
+function writeLineRig(value) {
+  if (!value || typeof value !== "object" || !value.rig || !Array.isArray(value.rig.parts) || !value.rig.parts.length) return false;
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  if (bytes.byteLength > MAX_LINE_RIG_BYTES) return false;
+  writeAtomic(LINE_RIG, bytes);
+  return true;
 }
 
 /** Downloads with no key, https only after redirects, and stops reading once `max` bytes are passed. */
@@ -75,6 +87,9 @@ export async function fetchModel({ refresh = false } = {}) {
       const source = resolve(dir, from);
       if (existsSync(source) && statSync(source).size <= MAX_TEXTURE_BYTES) copyFileSync(source, resolve(CACHE, to));
     }
+    // DOREUMI_LINE_RIG_FILE=/path/line-rig.json for the line preview when testing without the network.
+    const lineRigFile = process.env.DOREUMI_LINE_RIG_FILE;
+    if (lineRigFile && existsSync(lineRigFile)) { try { writeLineRig(JSON.parse(readFileSync(lineRigFile, "utf8"))); } catch { /* the 3D preview still works */ } }
     writeFileSync(INFO, JSON.stringify({ source: "local", rigSignature: signature, rights: RIGHTS.join(" ") }, null, 2));
     return { cached: false, signature };
   }
@@ -83,7 +98,9 @@ export async function fetchModel({ refresh = false } = {}) {
     const signature = modelSignature(new Uint8Array(readFileSync(MODEL)));
     let info = null;
     try { info = JSON.parse(readFileSync(INFO, "utf8")); } catch { /* broken note: download again */ }
-    if (signature && signature === info?.rigSignature) return { cached: true, signature };
+    // A folder made before the line art existed (no "lineRig" note) fetches once more to get the line Doreumi.
+    const lineReady = info && Object.prototype.hasOwnProperty.call(info, "lineRig") && (info.lineRig === false || existsSync(LINE_RIG));
+    if (signature && signature === info?.rigSignature && lineReady) return { cached: true, signature };
   }
 
   const { origin, key } = loadDormsEnv();
@@ -114,7 +131,8 @@ export async function fetchModel({ refresh = false } = {}) {
   }
   const rights = clean(body.rights, 1000) || RIGHTS.join(" ");
   const attachPoints = Array.isArray(body.attachPoints) ? body.attachPoints.filter((p) => typeof p === "string" && /^[A-Za-z0-9_]{1,64}$/.test(p)).slice(0, 64) : undefined;
-  writeAtomic(INFO, JSON.stringify({ source: origin, rigSignature: signature, attachPoints, rights }, null, 2));
+  const lineRig = writeLineRig(body.lineRig);
+  writeAtomic(INFO, JSON.stringify({ source: origin, rigSignature: signature, attachPoints, rights, lineRig }, null, 2));
   return { cached: false, signature };
 }
 

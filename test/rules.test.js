@@ -68,7 +68,8 @@ test("no animations, triangles only, not empty, triangle cap", () => {
   const lines = base(); lines.meshes[0].primitives[0].mode = 1;
   assert.match(checkItemGlb(glb(lines), rigid).reason, /삼각형/);
   const empty = base(); empty.accessors[0].count = 0;
-  assert.match(checkItemGlb(glb(empty), rigid).reason, /비어/);
+  // DoRms now refuses a shape that draws nothing before it counts triangles (itemFile.ts, kept in step).
+  assert.match(checkItemGlb(glb(empty), rigid).reason, /비어|그리지 않는/);
   const many = base(); many.accessors[0].count = 40_001 * 3;
   assert.match(checkItemGlb(glb(many), rigid).reason, /면이 너무 많아요/);
 });
@@ -79,7 +80,7 @@ test("rigged items need Doreumi joint names", () => {
   assert.equal(checkItemGlb(glb(json), { rigged: true, bone: null }).ok, true);
   json.nodes[0].name = "tail";
   assert.match(checkItemGlb(glb(json), { rigged: true, bone: null }).reason, /관절\(tail\)/);
-  delete json.skins;
+  delete json.skins; delete json.nodes[1].skin; // a node pointing at a missing skin is refused earlier as a broken link
   assert.match(checkItemGlb(glb(json), { rigged: true, bone: null }).reason, /뼈대 연결이 없어요/);
 });
 test("rigid items: no skins, bone must exist", () => {

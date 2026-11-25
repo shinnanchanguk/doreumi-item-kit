@@ -22,12 +22,21 @@
       #status { margin: 0; padding: 10px 16px 14px; font-size: 14px; line-height: 1.5; }
       #status[data-kind="ok"] { color: var(--ok); }
       #status[data-kind="error"] { color: var(--bad); font-weight: 600; }
+      #line { overflow: auto; padding: 4px 16px 12px; display: grid; gap: 14px; align-content: start; }
+      #line[hidden], #stage[hidden], .group[hidden] { display: none; }
+      #line .figs { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+      #line figure { margin: 0; display: grid; gap: 6px; justify-items: start; }
+      #line figcaption { font-size: 13px; color: #5c635d; }
+      #line .real { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+      #line .hint { margin: 0; font-size: 14px; line-height: 1.5; }
+      #line svg { display: block; border-radius: 8px; }
     </style>
   </head>
   <body>
     <header>
       <h1 id="title">도름이 아이템 미리보기</h1>
       <div id="tools" hidden>
+        <div class="group" id="modes" aria-label="보기"></div>
         <div class="group" id="views" aria-label="보는 방향"></div>
         <div class="group" id="clips" aria-label="동작"></div>
         <div class="group" id="times" aria-label="낮과 밤"></div>
@@ -35,6 +44,7 @@
       </div>
     </header>
     <canvas id="stage"></canvas>
+    <section id="line" hidden aria-label="링크트리 선 그림"></section>
     <p id="status" role="status"></p>
     <script type="module" src="/src/main.js"></script>
   </body>

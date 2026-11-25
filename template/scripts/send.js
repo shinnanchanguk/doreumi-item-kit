@@ -17,12 +17,13 @@ function readPrevious(argv) {
 async function main() {
   const previousId = readPrevious(process.argv.slice(2));
   const { origin, key } = loadDormsEnv();
-  const { ok, meta, glb, webp } = runCheck();
+  const { ok, meta, glb, webp, line } = runCheck();
   if (!ok) { process.exitCode = 1; console.log("검사를 통과하지 못해서 보내지 않았어요."); return; }
 
   const form = new FormData();
   form.append("file", new Blob([glb], { type: "model/gltf-binary" }), "item.glb");
   form.append("preview", new Blob([webp], { type: "image/webp" }), "preview.webp");
+  form.append("line", new Blob([line], { type: "application/json" }), "line.json");
   form.append("meta", JSON.stringify({ ...meta, ...(previousId ? { previousId } : {}) }));
 
   console.log(previousId ? "고친 아이템을 도름스에 다시 보내는 중이에요." : "도름스에 아이템을 보내는 중이에요.");

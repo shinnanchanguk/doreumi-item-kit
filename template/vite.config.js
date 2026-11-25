@@ -7,8 +7,8 @@ const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const CACHE = resolve(ROOT, ".doreumi");
 const DIST = resolve(ROOT, "dist");
 // The only files the preview page may write, with their size caps (the check enforces the real limits).
-const SAVE = new Map([["item.glb", 4 * 1024 * 1024], ["preview.webp", 1024 * 1024]]);
-const SERVE = new Map([["model.glb", ["doreumi-master.glb", "model/gltf-binary"]], ["face-skin.webp", ["face-skin.webp", "image/webp"]], ["face-neutral.webp", ["face-neutral.webp", "image/webp"]]]);
+const SAVE = new Map([["item.glb", 4 * 1024 * 1024], ["preview.webp", 1024 * 1024], ["line.json", 64 * 1024]]);
+const SERVE = new Map([["model.glb", ["doreumi-master.glb", "model/gltf-binary"]], ["face-skin.webp", ["face-skin.webp", "image/webp"]], ["face-neutral.webp", ["face-neutral.webp", "image/webp"]], ["line-rig.json", ["line-rig.json", "application/json"]]]);
 
 /** Serves the cached model to the preview and lets the "저장" button write into dist/. Local only. */
 function doreumiKit() {

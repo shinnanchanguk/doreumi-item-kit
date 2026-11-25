@@ -9,6 +9,10 @@ import { loadDoreumi } from "./doreumi.js";
 import { exportItem } from "./exportItem.js";
 import { wearDressItem } from "./dress.js";
 import { createItemLightPreview, createPreviewEnvironment } from "./light.js";
+import { buildLineArt } from "./lineArt.js";
+import * as DRAW from "./lineDraw.js";
+import { checkLineArt, composeOutfit } from "../scripts/lib/lineArt.js";
+import { figureSvg, heightFor, THEMES } from "./lineFigure.js";
 
 const $ = (id) => document.getElementById(id);
 const status = (text, kind = "") => { const el = $("status"); el.textContent = text; el.dataset.kind = kind; };
@@ -165,14 +169,21 @@ async function main() {
     if (!response.ok) throw new Error(`${name} 저장 실패(${response.status})`);
     return response.json();
   }
+  // ── 링크트리 선 그림(src/lineArt.js) ──
+  // 링크트리 사물함 위 선 그림 도름이가 이 아이템을 입은 모습. 3D 와 나란히 보며 다듬고, 저장하면 dist/line.json 이 된다.
+  const line = await setUpLineArt(config);
+  window.__kit.line = line;
+
   $("save").addEventListener("click", async () => {
     $("save").disabled = true;
     try {
+      if (!line.ok) throw new Error(`선 그림을 먼저 고쳐 주세요: ${line.reason}`);
       status("저장하는 중이에요.");
       const webp = await renderPreviewWebp();
-      await save("item.glb", glb); await save("preview.webp", webp);
-      status(`저장했어요: dist/item.glb (${Math.round(glb.byteLength / 1024)}KB), dist/preview.webp (${Math.round(webp.byteLength / 1024)}KB). 이제 터미널에서 npm run check 를 실행해 주세요.`, "ok");
-      window.__kit.saved = { glb: glb.byteLength, webp: webp.byteLength };
+      const lineBytes = new TextEncoder().encode(JSON.stringify(line.art));
+      await save("item.glb", glb); await save("preview.webp", webp); await save("line.json", lineBytes);
+      status(`저장했어요: dist/item.glb (${Math.round(glb.byteLength / 1024)}KB), dist/preview.webp (${Math.round(webp.byteLength / 1024)}KB), dist/line.json (${Math.max(1, Math.round(lineBytes.byteLength / 1024))}KB). 이제 터미널에서 npm run check 를 실행해 주세요.`, "ok");
+      window.__kit.saved = { glb: glb.byteLength, webp: webp.byteLength, line: lineBytes.byteLength };
     } catch (error) {
       status(error instanceof Error ? error.message : "저장하지 못했어요.", "error");
     } finally { $("save").disabled = false; }
@@ -183,7 +194,57 @@ async function main() {
   status(itemLight.lights.length
     ? "앞·옆·뒤와 동작을 확인하고, 밤을 눌러 빛이 비추는 자리도 봐 주세요. 저장하면 지금 고른 낮·밤 모습이 미리보기 그림에 담겨요."
     : "앞·옆·뒤와 걷기·앉기·손 흔들기로 돌려 보며 몸을 뚫거나 떠 있지 않은지 확인해 주세요. 마음에 들면 저장을 눌러 주세요.");
+  if (!line.ok) status(`선 그림 문제: ${line.reason} (src/lineArt.js 를 고치면 다시 그려요)`, "error");
   window.__kit.ready = true;
+}
+
+/**
+ * '3D | 선 그림' 보기 전환과 선 그림 화면. 큰 그림(좌표 격자)과 링크트리에 실제로 보이는 크기(컴퓨터 67px · 휴대폰 40px,
+ * 밝은 · 어두운 화면)를 함께 보여 준다. 손 아이템은 오른손 · 왼손 두 모습. 고른 보기는 저장해 다시 그려도 그대로.
+ */
+async function setUpLineArt(config) {
+  let rig = null;
+  try { const response = await fetch("/__doreumi/line-rig.json"); if (response.ok) rig = (await response.json()).rig ?? null; } catch { /* below */ }
+  let result;
+  try { result = checkLineArt(await buildLineArt(DRAW)); }
+  catch (error) { result = { ok: false, reason: `src/lineArt.js 를 실행하지 못했어요: ${error instanceof Error ? error.message : String(error)}` }; }
+  const slots = Array.isArray(config.slots) ? config.slots : [];
+  const isHand = slots.includes("hand");
+  const outfitFor = (hand) => result.ok ? composeOutfit([{ art: result.art, slots, ...(isHand ? { hand } : {}) }]) : null;
+  const section = $("line");
+  const figure = (svg, caption) => `<figure>${svg}<figcaption>${caption}</figcaption></figure>`;
+  if (!rig) {
+    section.innerHTML = `<p class="hint">선 그림 도름이 뼈대(.doreumi/line-rig.json)가 없어요. 터미널에서 npm run model 로 다시 받아 주세요.</p>`;
+  } else {
+    const right = outfitFor("rightHand"), left = isHand ? outfitFor("leftHand") : null;
+    const big = (o) => figureSvg(rig, o, { height: heightFor(400), strokePx: 1.3, grid: true });
+    const real = (o, px, theme) => figureSvg(rig, o, { height: heightFor(px), theme: THEMES[theme], strokePx: 0.9 });
+    section.innerHTML = [
+      result.ok ? "" : `<p class="hint" role="alert"><strong>선 그림 문제:</strong> ${String(result.reason).replace(/</g, "")}</p>`,
+      `<div class="figs">${figure(big(right), isHand ? "오른손에 들었을 때(화면 왼쪽)" : "링크트리 선 그림 · 격자 숫자는 src/lineArt.js 의 좌표")}${left ? figure(big(left), "왼손에 들었을 때(화면 오른쪽)") : ""}</div>`,
+      `<div class="real">${figure(real(right, 67, "light"), "컴퓨터 크기")}${figure(real(right, 67, "dark"), "어두운 화면")}${figure(real(right, 40, "light"), "휴대폰 크기")}${figure(real(right, 40, "dark"), "어두운 화면")}</div>`,
+      `<p class="hint">링크트리에서 실제로 보이는 크기예요. 이 크기에서도 무엇인지 알아볼 수 있어야 해요. src/lineArt.js 를 저장하면 다시 그려요.</p>`,
+    ].join("");
+  }
+  const modes = [["3d", "3D"], ["line", "선 그림"]];
+  const KEY = "doreumi-kit-view";
+  const setMode = (mode) => {
+    $("stage").hidden = mode === "line";
+    section.hidden = mode !== "line";
+    for (const id of ["views", "clips", "times"]) $(id).hidden = mode === "line";
+    for (const button of document.querySelectorAll("[data-mode]")) button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+    try { sessionStorage.setItem(KEY, mode); } catch { /* private window */ }
+    if (mode === "3d") window.dispatchEvent(new Event("resize"));
+  };
+  for (const [mode, label] of modes) {
+    const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.dataset.mode = mode;
+    button.addEventListener("click", () => setMode(mode)); $("modes").append(button);
+  }
+  let saved = "3d";
+  try { saved = sessionStorage.getItem(KEY) === "line" ? "line" : "3d"; } catch { /* private window */ }
+  setMode(saved);
+  if (!result.ok) status(`선 그림 문제: ${result.reason}`, "error");
+  return result;
 }
 
 main().catch((error) => {
