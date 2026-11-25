@@ -105,10 +105,6 @@ export function mapPath(d, fn) {
     }));
 }
 /**
- * 제작자가 보낸 선 그림(JSON)을 검사하고 깨끗한 형태로 돌려준다. 이유는 선생님께 그대로 보여 줄 한국어다.
- * 경로 글자 · 층 이름 · 선 종류를 정해진 것만 받아, 화면에 그릴 때 사용자 입력이 다른 모양으로 끼어들지 않게 한다.
- */
-/**
  * 그림 층이 그 아이템의 자리와 맞나. 맞지 않으면 회원 화면에서 그림이 빠지거나(손 자리가 아닌데 hand 층),
  * 회원이 손을 바꿔도 늘 같은 팔에 그려진다(손 자리인데 팔 층). 맞으면 null, 아니면 고칠 말.
  */
@@ -123,6 +119,10 @@ export function lineLayersFitSlots(art, slots) {
     }
     return null;
 }
+/**
+ * 제작자가 보낸 선 그림(JSON)을 검사하고 깨끗한 형태로 돌려준다. 이유는 선생님께 그대로 보여 줄 한국어다.
+ * 경로 글자 · 층 이름 · 선 종류를 정해진 것만 받아, 화면에 그릴 때 사용자 입력이 다른 모양으로 끼어들지 않게 한다.
+ */
 export function checkLineArt(input) {
     if (!input || typeof input !== "object" || Array.isArray(input))
         return { ok: false, reason: "선 그림은 JSON 객체여야 해요." };
@@ -182,10 +182,10 @@ export function placeInHand(paths, arm) {
 /** 겹칠 때 뒤에 그리는 순서(작을수록 먼저): 등 → 하의 → 상의 · 한 벌 → 신발 → 목 → 얼굴 → 머리 → 손. */
 const SLOT_RANK = { back: 0, bottom: 1, top: 2, shoes: 3, neck: 4, face: 5, head: 6, hand: 7 };
 const rankOf = (slots) => Math.min(...slots.map((s) => SLOT_RANK[s] ?? 5));
-/** 회원이 입은 아이템들의 선 그림을 그리는 순서대로 합친다. */
 /** 손 자리 아이템의 바닥 층(behind · ground)을 왼손 쪽으로 옮길 때의 축: 두 손 쥐는 점 사이 가운데. */
 const HAND_FLOOR_AXIS = (LINE_GRIP.armR[0] + LINE_GRIP.armL[0]) / 2;
 const mirrorFloor = (paths) => paths.map((p) => ({ k: p.k, d: mapPath(p.d, (x, y) => [2 * HAND_FLOOR_AXIS - x, y]) })).filter((p) => p.d);
+/** 회원이 입은 아이템들의 선 그림을 그리는 순서대로 합친다. */
 export function composeOutfit(entries) {
     const layers = {};
     const push = (layer, paths) => {
