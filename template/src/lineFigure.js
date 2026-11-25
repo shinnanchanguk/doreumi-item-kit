@@ -78,8 +78,9 @@ function gridLines(vb) {
  * 보기 상자는 입은 것까지 담도록 넓어지고 그림 크기도 그만큼 커진다. strokePx 는 선 굵기(px, 화면 기준). grid 는 좌표 격자(도구 미리보기).
  */
 export function figureSvgWith(rig, outfit, opts) {
-    const t = opts.theme ?? FIGURE_THEMES.light;
-    const sw = opts.strokePx ?? 0.9;
+    const t0 = opts.theme ?? FIGURE_THEMES.light;
+    const t = { plate: safeColor(t0.plate), edge: safeColor(t0.edge), mid: safeColor(t0.mid), bg: safeColor(t0.bg) };
+    const sw = Number(opts.strokePx ?? 0.9);
     const vb = opts.viewBox ?? figureViewBox(outfit);
     const parts = new Map(rig.parts.map((p) => [p.id, p]));
     const ant = outfit?.ant ?? "show";
@@ -99,6 +100,6 @@ export function figureSvgWith(rig, outfit, opts) {
             body.push(wear(outfit?.layers[step.wear], t, sw));
     }
     const k = opts.doreumiPx / DOREUMI_HEIGHT_UNITS;
-    const bg = opts.background ? `<rect x="${vb.x}" y="${vb.y}" width="${vb.w}" height="${vb.h}" fill="${safeColor(t.bg)}"/>` : "";
+    const bg = opts.background ? `<rect x="${vb.x}" y="${vb.y}" width="${vb.w}" height="${vb.h}" fill="${t.bg}"/>` : "";
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.x} ${vb.y} ${vb.w} ${vb.h}" width="${(vb.w * k).toFixed(1)}" height="${(vb.h * k).toFixed(1)}">${bg}${body.join("")}</svg>`;
 }
